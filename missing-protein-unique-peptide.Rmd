@@ -1,58 +1,64 @@
 ---
 title: "missing-protein-unique-peptides"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2023-04-06"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/data')
 ```
 
 
 ```{r}
 library(tidyverse)
+if (!require("protools", quietly = TRUE))
+   devtools::install_github("https://github.com/FDUguchunhui/protools")
+library(protools)
 ```
 
 
 
-Import peptides of identified missing proteins
+# Import peptides of identified missing proteins
 ```{r}
-MP_final_peptide <- readxl::read_xlsx('missing-protein-project/data/details_298_proteins.xlsx', sheet = 2)
+MP_final_peptide <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 2)
 head(MP_final_peptide)
 ```
 
-import uniqueness checking
+# Import uniqueness checking
 ```{r}
-uniqueness_checking <- readxl::read_xlsx('missing-protein-project/data/details_298_proteins.xlsx', sheet = 3)
+uniqueness_checking <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 3)
 head(uniqueness_checking)
 ```
 
 
-
-
+Processing data before computing the number of unique peptides for each
+identified missing proteins
 ```{r}
 MP_final_peptide$Source <- str_extract(MP_final_peptide$Source, '^IPAS[0-9]+(?=_)')
-```
-
-```{r}
 MP_final_peptide$unique <- ifelse(is.na(MP_final_peptide$unique) | MP_final_peptide$unique == 'N', 0 , 1)
 ```
 
-
+# Import peptides of 204 identified missing proteins
 ```{r}
-MP_204_products <- read_csv('missing-protein-project/output/protein list/detected_204_MP_products.csv')
+MP_204_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
 MP_204_products$IPAS <- paste0('IPAS', str_extract(MP_204_products$IPAS, '(?<=IP).+(?=_)'))
 ```
 
-
+The uniqueness checker contains information about the identified 298 missing proteins
+(without SpC >=2 constraint), and it is a superset of the identified 204 MPs.
+The following code extract uniqueness checker information only for those 204 MPs.
 ```{r}
 unique_peptide_summary <- MP_final_peptide %>% filter(unique == 1) %>% group_by(Gene, Source) %>% summarise(n=n(), unique_peptide=paste0(peptide.seq, collapse = '+')) %>% arrange(Gene, desc(n), .by_group = FALSE) %>% ungroup()
 ```
 
 
+# Get Summary of number of unique peptides for each of the 204 MPs
 ```{r}
 unique_peptide_summary <- MP_204_products %>% left_join(unique_peptide_summary, by=c('accession' = 'Gene', 'IPAS' = 'Source')) %>% replace_na(list(n=0))
-write_csv(unique_peptide_summary, 'missing-protein-project/output/missing_protein_unique_peptides.csv')
+# write_csv(unique_peptide_summary, 'missing-protein-project/output/missing_protein_unique_peptides.csv')
 ```
 
 
@@ -68,7 +74,7 @@ theme_bw() +
   xlab('Matched unique peptide counts') +
   ylab('Frequency') +
   ggtitle('Matched unique peptide frequency of identified 204 missing proteins products') +
-  scale_x_discrete(breaks=c('0', seq(5, 49, 5), '50+'), drop=FALSE) +
+  scale_x_discrete(breaks=c('1', seq(5, 49, 5), '50+'), drop=FALSE) +
   scale_y_continuous(limits=c(0, 75))
 ```
 
@@ -87,7 +93,7 @@ theme_bw() +
   ylab('Frequency') +
   ggtitle('Matched unique peptide frequency of identified 119 missing proteins products 
           with mRNA expression') +
-  scale_x_discrete(breaks=c('0', seq(5, 49, 5), '50+'), drop=FALSE) +
+  scale_x_discrete(breaks=c('0', seq(1, 49, 5), '50+'), drop=FALSE) +
   scale_y_continuous(limits=c(0, 75))
 ```
 
