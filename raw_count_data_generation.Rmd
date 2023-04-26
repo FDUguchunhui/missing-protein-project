@@ -6,7 +6,9 @@ date: "2022-10-11"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = 'missing-protein-project')
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project')
+setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project')
+getwd()
 ```
 
 
@@ -105,6 +107,18 @@ IPAS_list <- lapply(SpCs, extract_IPAS)
 
 
 ```{r}
+remove_isoforms <- function(mat) {
+  tbl <- mat %>% as_tibble(rownames = 'accession') %>% 
+    mutate('is_isoform'=str_detect(accession, pattern = '.+-.+')) %>% 
+    filter(is_isoform == FALSE) %>% 
+    select(-c('is_isoform'))
+  
+  out <- as.matrix(tbl[-1])
+  # need to use pull to make it as vector
+  rownames(out) <- pull(tbl[1])
+  return(out)
+}
+
 generating_raw_count <- function(IPAS, count_column, keep_isoform=FALSE) {
   raw_count <- full_rawdata %>% 
    dplyr::select(accession, ipas, !!count_column) %>%
@@ -326,7 +340,7 @@ write_to_csv(nasf_mat$nuclear, 'data/cell line raw data/nasf_nuclear_2.csv')
 
 # filter with missing proteins
 ```{r}
-missing_protein_df <- readxl::read_xlsx('data/support data/PE2-5.xlsx')
+missing_protein_df <- readxl::read_xlsx('data/support-data/PE2-5.xlsx')
 # missing_protein_df <- missing_protein_df %>% filter(PE != 'Uncertain')
 save(missing_protein_df, file='cache/missing_protein.rda')
 ```
