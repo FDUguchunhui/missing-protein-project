@@ -18,25 +18,13 @@ knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-Insid
 # misspelling in the original file name 
 primary_cell_nsaf <- read.csv('data/nasf/nasf_primary_cell_2.csv', row.names = 1)
 primary_cell_nsaf <- as.matrix(primary_cell_nsaf)
+tce_nsaf <- read.csv('data/cell-line-raw-data/nasf_tce_2.csv', row.names = 1)
+tce_nsaf <- as.matrix(tce_nsaf)
 # read annotation file
 IPAS_annotation <- read_csv('data/support-data/IPAS_annotation.csv')
 ```
 
-# ```{r}
-# primary_cell_nsaf['A0A087WTP8', 'IP0993_1701']
-# gastric_nsaf['A0A087WTP8', 'IP0993_1701']
-# ```
-# 
-# 
-# ```{r}
-# primary_cell_nsaf_gene_symbol['AGAP4',  'IP0993_1701']
-# gastric_nsaf_gene_level['AGAP4', 'IP0993_1701']
-# ```
 
-
-```{r}
-# primary_cell_nasf_gene_symbol <- primary_cell_nsaf_gene_symbol[!is.na(rownames(primary_cell_nsaf_gene_symbol)), ]
-```
 
 
 
@@ -56,6 +44,14 @@ colnames(primary_cell_annotation) <- 'disease'
 table(primary_cell_annotation$disease)
 ```
 
+```{r}
+tce_annotation <- create_annoataion(tce_nsaf, annotation_table = IPAS_annotation)
+tce_annotation$type <- paste(tce_annotation$disease, tce_annotation$subtype)
+tce_annotation <- tce_annotation[, c('disease', 'type')]
+colnames(tce_annotation) <- c('cancer', 'subtype')
+table(tce_annotation$disease)
+table(tce_annotation$subtype)
+```
 
 
 # import missing protein
@@ -65,148 +61,140 @@ MP_177_accession <- missing_proteins$accession
 unique_67_accession  <- missing_proteins %>% filter(TPM > 0) %>% select(accession) %>% pull() %>% unique()
 ```
 
+# generate a col to denote cancer=testis for the identified MPs
+```{r}
+cancer_testis_gene <- c('WFDC11','SPATA21','C19orf67','CCNYL2','TRAV9-2','TRAV6','TMEM105','NCBP2L','TMC3','PCDHAC1','A3GALT2','OR2L2','CTAGE15','RGPD1','SLAMF9','ASB18','TRAV34','PPIAL4G','RFPL4AL1','ANKUB1','GRXCR2','PRSS48','R3HDML')
+missing_proteins_annotation <- missing_proteins %>% filter(TPM > 0) %>%  select(accession, gene_symbol) %>% unique()
+missing_proteins_annotation <- missing_proteins_annotation %>% mutate(cancer_testis=if_else(gene_symbol %in% cancer_testis_gene, 1, 0))
+missing_proteins_annotation <- missing_proteins_annotation %>% arrange(cancer_testis)
+```
 
 
 ```{r}
-extract_sample_id <- function(x, disease) {
-  rownames(x$annotation[x$annotation$disease %in% disease, ,drop=FALSE])
+extract_sample_id <- function(x, disease_col, disease) {
+  rownames(x$annotation[x$annotation[[disease_col]] %in% disease, ,drop=FALSE])
 }
 
 # diseases_keep <- c('Colon', 'Glioma', 'Leukemia', 'Lymphoblast', 'Melanoma', 'Neuroblastoma', 'Prostate', 'Ovarian')
 diseases_keep <- c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites")
-
-
 SpC_list_primary_cell <- SpC_List(primary_cell_nsaf, annotation = primary_cell_annotation, proteins_filter = unique_67_accession)
+replicates_for_keep <- extract_sample_id(SpC_list_primary_cell, disease_col = 'disease', disease = diseases_keep)
 
-replicates_for_keep <- extract_sample_id(SpC_list_primary_cell, diseases_keep)
+
+# diseases_keep <- c('Colon', 'Glioma', 'Leukemia', 'Lymphoblast', 'Melanoma', 'Neuroblastoma', 'Prostate', 'Ovarian')
+diseases_keep_tce <- c("Breast HER2", "Breast LuminalA/B", "Breast TNBC", "Gastric Ascites", "Gastric Adeno", "Leukemia AML", "LungAdeno Mesenchymal", "LungAdeno Epithelial", "LungAdeno NA", "Ovarian Adeno ", "Pancreatic ExocrineAdeno", "SCLC Neurendocrine")
+SpC_list_tce <- SpC_List(tce_nsaf, annotation = tce_annotation, proteins_filter = unique_67_accession)
+replicates_for_keep_tce <- extract_sample_id(SpC_list_tce, disease_col = 'subtype', disease = diseases_keep_tce)
 ```
-
-
-
-```{r}
-# dat_primary_cell <- SpC_List(primary_cell_nasf_gene_symbol, annotation = primary_cell_annotation, replicates_keep = replicates_for_keep)
-# dat_primary_cell$matrix <- dat_primary_cell$matrix[rowSums(dat_primary_cell$matrix) > 0, ]
-```
-
-
-```{r}
-# mapping(rownames(MP_85_gene_symbol), dict_accession_to_gene_symbol)
-```
-
-
-
-
-
-
-
-
 
 
 
 # create SpC_List object for each disease
 ```{r}
-IPAS <- mapply(FUN=extract_sample_id, disease=c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites"), MoreArgs = list(x=SpC_list_primary_cell))
+IPAS <- mapply(FUN=extract_sample_id, disease=c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites"), MoreArgs = list(x=SpC_list_primary_cell, disease_col='disease'))
 # SpC_lists <- mapply(FUN=SpC_List, replicates_keep=IPAS, MoreArgs = list(df=primary_cell_nasf_gene_symbol, annotation=primary_cell_annotation, proteins_filter=MP_204_gene_symbol), SIMPLIFY = FALSE)
+IPAS_tce <- mapply(FUN=extract_sample_id, disease= c("Breast HER2", "Breast LuminalA/B", "Breast TNBC", "Gastric Ascites", "Gastric Adeno", "Leukemia AML", "LungAdeno Mesenchymal", "LungAdeno Epithelial", "LungAdeno NA", "Ovarian Adeno", "Pancreatic ExocrineAdeno", "SCLC Neurendocrine"), MoreArgs = list(x=SpC_list_tce, disease_col='subtype'))
 ```
 
 
 
 ```{r}
 primary_cell_nasf <- primary_cell_nsaf[, unlist(IPAS)]
+tce_nsaf <- tce_nsaf[, unlist(IPAS_tce)]
 ```
 
 
 # check cancer-specificity in primary cell
 ```{r}
 all_cancer_primary_cell <- SpC_List(df=primary_cell_nasf, annotation=primary_cell_annotation, proteins_filter = unique_67_accession)
+all_cancer_tce <- SpC_List(df=tce_nsaf, annotation=tce_annotation, proteins_filter = unique_67_accession)
 ```
-
-
-```{r, fig.height=8, fig.width=8}
-plot_heat_map(all_cancer_primary_cell, cluster_cols = F, show_rownames = T, fontsize_row=7,
-              main='Cancer-specificity for the identied 67 missing protein')
-```
-
-
-
-
 
 
 
 
 ```{r}
-prefilter <- function(x) {
-  # N <- ncol(x$matrix)/2
-  N <- 2
-  keep <- rowSums(x$matrix > 0) >= N
-  return(rownames(x$matrix[keep,]))
-}
+all_cancer_primary_cell$matrix <- all_cancer_primary_cell$matrix[missing_proteins_annotation$accession, ]
+
+row_annotation <- missing_proteins_annotation[, c("accession", "cancer_testis")]
+row_annotation <- data.frame(`cancer testis`=row_annotation$cancer_testis, row.names = row_annotation$accession)
+row_annotation$cancer.testis <- as.factor(row_annotation$cancer.testis)
 ```
 
+
+```{r, fig.width=12, fig.height=8}
+plot_heat_map(all_cancer_primary_cell,
+         annotation_row = row_annotation,
+         cluster_rows = T,
+         cluster_cols = F,
+         show_rownames = T,
+         fontsize_row=7,
+              main='Cancer-specificity for the identied 67 missing proteins in cancer primary cell data',
+         show_colnames = F,)
+
+
+plot_heat_map(all_cancer_primary_cell,
+         annotation_row = row_annotation,
+         cluster_rows = F,
+         cluster_cols = F,
+         show_rownames = T,
+         fontsize_row=7,
+              main='Cancer-specificity for the identied 67 missing proteins in cancer primary cell data',
+         show_colnames = F,)
+```
+
+
+
+
+
+# reorder to make caqncer-testis perotein to bottom part
+```{r}
+# find those MPs that were empty in data
+empty_MPs <- missing_proteins_annotation$accession[which(!(missing_proteins_annotation$accession %in% rownames(all_cancer_tce$matrix)))]
+additional_matrix <- matrix(0, nrow = length(empty_MPs), ncol = ncol(all_cancer_tce$matrix))
+rownames(additional_matrix) <- empty_MPs
+all_cancer_tce$matrix <- rbind(all_cancer_tce$matrix, additional_matrix)
+all_cancer_tce$matrix <- all_cancer_tce$matrix[missing_proteins_annotation$accession, ]
+```
+
+
+```{r, fig.width=12, fig.height=8}
+row_annotation <- missing_proteins_annotation[, c("accession", "cancer_testis")]
+row_annotation <- data.frame(`cancer testis`=row_annotation$cancer_testis, row.names = row_annotation$accession)
+row_annotation$cancer.testis <- as.factor(row_annotation$cancer.testis)
+
+(cancer_specificity_cell_line_row_clustered <- plot_heat_map(all_cancer_tce,
+         annotation_row = row_annotation,
+         cluster_rows = T,
+         cluster_cols = F,
+         show_rownames = T,
+         fontsize_row=7,
+              main='Cancer-specificity for the identied 67 missing proteins in cancer cell-line data',
+         show_colnames = F))
+
+# ggsave('~/Downloads/cancer_specificity_primary_cell_row_clustered.png', cancer_specificity_primary_cell_row_clustered,
+#        width = 1020, height=735, units = 'px', dpi=80)
+
+(cancer_specificity_cell_line <- plot_heat_map(all_cancer_tce,
+         annotation_row = row_annotation,
+         cluster_rows = F,
+         cluster_cols = F,
+         show_rownames = T,
+         fontsize_row=7,
+              main='Cancer-specificity for the identied 67 missing proteins in cancer cell-line data',
+         show_colnames = F))
+
+(cancer_specificity_cell_line_col_clustered <- plot_heat_map(all_cancer_tce,
+         annotation_row = row_annotation,
+         cluster_rows = T,
+         cluster_cols = T,
+         show_rownames = T,
+         fontsize_row=7,
+              main='Cancer-specificity for the identied 67 missing proteins in cancer cell-line data',
+         show_colnames = F))
+```
 
 ```{r}
-MPs <- lapply(SpC_lists, prefilter)
-sapply(MPs, length)
+
 ```
 
-
-```{r}
-plot_venn_diagram(MPs)
-```
-
-
-```{r}
-VennDiagram::get.venn.partitions(MPs)
-```
-```{r}
-data.frame(data = names(MPs), number = matrix(MPs)) %>%
-  tidyr::unnest(cols = c(number)) %>%
-  dplyr::distinct(number, .keep_all = TRUE)
-```
-
-
-```{r}
-'RFPL2' %in% detected_MP_proteins
-'TBC1D28' %in% detected_MP_proteins
-'ZNF582' %in% detected_MP_proteins
-```
-
-
-
-# ```{r}
-# (all_nasf_gene_symbol[, IPAS_breast] > 0)
-# ```
-# 
-# ```{r}
-# gastric_nsaf_missing <- gastric_nsaf_gene_level[rownames(gastric_nsaf_gene_level) %in% missing_proteins, ]
-# 
-# N <- 1
-# keep <- rowSums(gastric_nsaf_missing > 0, na.rm = T) >= N
-# missing <- rownames(gastric_nsaf_missing[keep,])
-# ```
-
-
-```{r}
-mean(MPs$`Gastric Ascites` %in% detected_MP_proteins)
-mean(detected_MP_proteins %in% MPs$`Gastric Ascites`)
-```
-
-
-```{r}
-detected_MP_proteins[!(detected_MP_proteins %in% MPs$Gastric)]
-```
-
-
-# ```{r}
-# x <- SpC_lists$Gastric$matrix
-# x <- x[rowSums(x > 0) > 0, ]
-# ```
-
-```{r}
-SpC_lists$Gastric$annotation
-```
-
-
-```{r}
-colnames(gastric_nsaf) %in% rownames(SpC_lists$Gastric$annotation)
-```
