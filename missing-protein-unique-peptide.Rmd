@@ -38,27 +38,28 @@ head(uniqueness_checking)
 Processing data before computing the number of unique peptides for each
 identified missing proteins
 ```{r}
-MP_final_peptide$Source <- str_extract(MP_final_peptide$Source, '^IPAS[0-9]+(?=_)')
+MP_final_peptide$Source <- str_extract(MP_final_peptide$Source, '^IPAS[0-9]+')
 MP_final_peptide$unique <- ifelse((MP_final_peptide$unique =='.' | MP_final_peptide$unique == 'N'), 0 , 1)
 ```
 
 # Import peptides of 204 identified missing proteins
 ```{r}
-MP_204_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
-MP_204_products$IPAS <- paste0('IPAS', str_extract(MP_204_products$IPAS, '(?<=IP).+(?=_)'))
+# MP_204_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
+MP_177_products <- read_csv('detected_177_MP_products_with_RNA.csv')
+MP_177_products$IPAS <- paste0('IPAS', str_extract(MP_177_products$IPAS, '(?<=IP).+(?=_)'))
 ```
 
 The uniqueness checker contains information about the identified 298 missing proteins
 (without SpC >=2 constraint), and it is a superset of the identified 204 MPs.
 The following code extract uniqueness checker information only for those 204 MPs.
 ```{r}
-unique_peptide_summary <- MP_final_peptide %>% filter(unique == 1) %>% group_by(Gene, Source) %>% summarise(n=n(), unique_peptide=paste0(peptide.seq, collapse = '+')) %>% arrange(Gene, desc(n), .by_group = FALSE) %>% ungroup()
+unique_peptide_summary <- MP_final_peptide %>% filter(unique == 1) %>% group_by(protein.Accession, Source) %>% summarise(n=n(), unique_peptide=paste0(peptide.seq, collapse = '+')) %>% arrange(protein.Accession, desc(n), .by_group = FALSE) %>% ungroup()
 ```
 
 
-# Get Summary of number of unique peptides for each of the 204 MPs
+# Get Summary of number of unique peptides for each of the 177 MPs
 ```{r}
-unique_peptide_summary <- MP_204_products %>% left_join(unique_peptide_summary, by=c('accession' = 'Gene', 'IPAS' = 'Source')) %>% replace_na(list(n=0))
+unique_peptide_summary <- MP_177_products %>% left_join(unique_peptide_summary, by=c('accession' = 'protein.Accession', 'IPAS' = 'Source')) %>% replace_na(list(n=0))
 # write_csv(unique_peptide_summary, 'missing_protein_unique_peptides.csv')
 ```
 
@@ -74,7 +75,7 @@ unique_peptide_summary %>%
 theme_bw() +
   xlab('Matched unique peptide counts') +
   ylab('Frequency') +
-  ggtitle('Matched unique peptide frequency of identified 204 missing proteins products') +
+  ggtitle('Matched unique peptide frequency of identified 177 missing proteins products') +
   scale_x_discrete(breaks=c('1', seq(5, 49, 5), '50+'), drop=FALSE) +
   scale_y_continuous(limits=c(0, 30))
 ```
@@ -90,28 +91,28 @@ unique_peptide_summary %>% filter(n >= 2)
 
 # plot unique peptide frequency for MP with RNA expression
 ```{r}
-unique_peptide_summary_119 <- unique_peptide_summary %>% filter(TPM > 0)
-unique_peptide_summary_119 <-  unique_peptide_summary_119 %>% mutate(count_discrete=ifelse(n >= 50, '50+', n))
-unique_peptide_summary_119$count_discrete <- factor(unique_peptide_summary_119$count_discrete, levels=c(as.character(0:49), '50+'))
+unique_peptide_summary_88 <- unique_peptide_summary %>% filter(TPM > 0)
+unique_peptide_summary_88 <-  unique_peptide_summary_88 %>% mutate(count_discrete=ifelse(n >= 50, '50+', n))
+unique_peptide_summary_88$count_discrete <- factor(unique_peptide_summary_88$count_discrete, levels=c(as.character(0:49), '50+'))
 
-unique_peptide_summary_119 %>% 
+unique_peptide_summary_88 %>% 
   ggplot(aes(x=count_discrete)) +
   geom_bar(position = 'identity', fill='blue') +
 theme_bw() +
   xlab('Matched unique peptide counts') +
   ylab('Frequency') +
-  ggtitle('Matched unique peptide frequency of identified 119 missing proteins products 
+  ggtitle('Matched unique peptide frequency of identified 88 missing proteins products 
           with mRNA expression') +
   scale_x_discrete(breaks=c('1', seq(1, 49, 5), '50+'), drop=FALSE) +
   scale_y_continuous(limits=c(0, 30))
 ```
 
 ```{r}
-unique_peptide_summary_119 %>% summary()
+unique_peptide_summary_88 %>% summary()
 ```
 
 
 ```{r}
-unique_peptide_summary_119 %>% filter(n >= 2)
+unique_peptide_summary_88 %>% filter(n >= 2)
 ```
 

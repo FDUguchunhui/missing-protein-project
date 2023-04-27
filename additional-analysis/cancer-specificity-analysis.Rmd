@@ -20,15 +20,6 @@ primary_cell_nsaf <- read.csv('data/nasf/nasf_primary_cell_2.csv', row.names = 1
 primary_cell_nsaf <- as.matrix(primary_cell_nsaf)
 # read annotation file
 IPAS_annotation <- read_csv('data/support-data/IPAS_annotation.csv')
-
-# only keep missing protein
-# primary_cell_nsaf <- primary_cell_nsaf[rownames(primary_cell_nsaf) %in% missing_proteins_accession,]
-
-primary_cell_nsaf_gene_symbol <- rownames_mapping(primary_cell_nsaf, omics_metadata, map_from = 'accession_id', map_to = 'gene_symbol')
-# use sum or average? ?? sum seems to make more sense
-temp <- as_tibble(primary_cell_nsaf_gene_symbol, rownames='symbol') %>%  filter(!is.na(symbol))  %>% group_by(symbol) %>% summarise_all(sum)
-primary_cell_nsaf_gene_symbol <- as.matrix(temp[-1])
-rownames(primary_cell_nsaf_gene_symbol) <- temp$symbol
 ```
 
 # ```{r}
@@ -58,11 +49,20 @@ create_annoataion <- function(data, annotation_table) {
   return(annotation_df)
 }
 
-primary_cell_annotation <- create_annoataion(primary_cell_nasf_gene_symbol, annotation_table = IPAS_annotation)
+primary_cell_annotation <- create_annoataion(primary_cell_nsaf, annotation_table = IPAS_annotation)
 primary_cell_annotation$type <- paste(primary_cell_annotation$disease, primary_cell_annotation$subtype)
 primary_cell_annotation <- primary_cell_annotation['type']
 colnames(primary_cell_annotation) <- 'disease'
 table(primary_cell_annotation$disease)
+```
+
+
+
+# import missing protein
+```{r}
+missing_proteins <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
+MP_177_accession <- missing_proteins$accession
+unique_67_accession  <- missing_proteins %>% filter(TPM > 0) %>% select(accession) %>% pull() %>% unique()
 ```
 
 
@@ -76,7 +76,7 @@ extract_sample_id <- function(x, disease) {
 diseases_keep <- c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites")
 
 
-SpC_list_primary_cell <- SpC_List(primary_cell_nasf_gene_symbol, annotation = primary_cell_annotation, proteins_filter=missing_proteins)
+SpC_list_primary_cell <- SpC_List(primary_cell_nsaf, annotation = primary_cell_annotation, proteins_filter = unique_67_accession)
 
 replicates_for_keep <- extract_sample_id(SpC_list_primary_cell, diseases_keep)
 ```
@@ -89,22 +89,8 @@ replicates_for_keep <- extract_sample_id(SpC_list_primary_cell, diseases_keep)
 ```
 
 
-# import missing protein
 ```{r}
-missing_proteins <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
-MP_204_gene_symbol <- missing_proteins$accession
-MP_85_gene_symbol <- missing_proteins %>% filter(TPM > 0) %>% select(accession) %>% pull() %>% unique()
-```
-
-
-```{r}
-mapping(rownames(MP_85_gene_symbol), dict_accession_to_gene_symbol)
-```
-
-
-
-```{r}
-MP_counts_long
+# mapping(rownames(MP_85_gene_symbol), dict_accession_to_gene_symbol)
 ```
 
 
@@ -117,29 +103,28 @@ MP_counts_long
 
 
 
-
-<!-- # create SpC_List object for each disease  -->
-<!-- ```{r} -->
-<!-- IPAS <- mapply(FUN=extract_sample_id, disease=c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites"), MoreArgs = list(x=SpC_list_primary_cell)) -->
-<!-- SpC_lists <- mapply(FUN=SpC_List, replicates_keep=IPAS, MoreArgs = list(df=primary_cell_nasf_gene_symbol, annotation=primary_cell_annotation, proteins_filter=MP_204_gene_symbol), SIMPLIFY = FALSE) -->
-<!-- ``` -->
+# create SpC_List object for each disease
+```{r}
+IPAS <- mapply(FUN=extract_sample_id, disease=c("Leukemia ALL", "Leukemia AML", "Leukemia MDS", "Ovarian Ascites", "Gastric Ascites"), MoreArgs = list(x=SpC_list_primary_cell))
+# SpC_lists <- mapply(FUN=SpC_List, replicates_keep=IPAS, MoreArgs = list(df=primary_cell_nasf_gene_symbol, annotation=primary_cell_annotation, proteins_filter=MP_204_gene_symbol), SIMPLIFY = FALSE)
+```
 
 
 
 ```{r}
-primary_cell_nasf_gene_symbol <- primary_cell_nasf_gene_symbol[, unlist(IPAS)]
+primary_cell_nasf <- primary_cell_nsaf[, unlist(IPAS)]
 ```
 
 
 # check cancer-specificity in primary cell
 ```{r}
-all_cancer_primary_cell <- SpC_List(df=primary_cell_nasf_gene_symbol, annotation=primary_cell_annotation, proteins_filter=MP_204_gene_symbol)
+all_cancer_primary_cell <- SpC_List(df=primary_cell_nasf, annotation=primary_cell_annotation, proteins_filter = unique_67_accession)
 ```
 
 
-```{r, fig.height=12, fig.width=8}
+```{r, fig.height=8, fig.width=8}
 plot_heat_map(all_cancer_primary_cell, cluster_cols = F, show_rownames = T, fontsize_row=7,
-              main='Cancer-specificity for the identied 85 missing protein')
+              main='Cancer-specificity for the identied 67 missing protein')
 ```
 
 
