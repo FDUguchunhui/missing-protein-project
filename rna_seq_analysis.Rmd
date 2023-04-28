@@ -1,5 +1,5 @@
 ---
-title: "RNA data processing"
+title: "RNA data processing and exploration"
 output:
   pdf_document: default
   html_document: default
@@ -8,7 +8,11 @@ date: "2022-09-27"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/data')
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
+# run following line if you need to run code in console
+# knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
+# setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-datat')
+# getwd()
 ```
 
 
@@ -53,9 +57,7 @@ count <- count[-which(rowSums(count[-1]) == 0),]
 ## read-in newest missing protein list
 missing_protein_df <- readxl::read_xlsx('support-data/PE2-5.xlsx')
 missing_protein_df <- missing_protein_df[-c(1:12), ]
-# head(missing_protein_df)
-accession_to_symbol <- missing_protein_df %>% dplyr::select(Accession, `gene name(s)`) 
-accession_to_symbol <- base::data.frame(gene_name = accession_to_symbol$`gene name(s)`, row.names = accession_to_symbol$Accession)
+head(missing_protein_df)
 ```
 
 
@@ -138,12 +140,72 @@ gene_length_df <- dict_ensembl_to_symbol %>% dplyr::select(ensembl_gene_id, gene
 gene_length_df <- data.frame(length=gene_length_df$gene_length, row.names=gene_length_df$ensembl_gene_id)
 count_TPM_mat <- TPM(count_mat, gene_length_df)
 head(count_TPM_mat)
-save(count_TPM_mat, file='cache/count_TPM.rda')
+# save(count_TPM_mat, file='cache/count_TPM.rda')
 ```
+
+
+# Transform RNA expression data into gene symbol level
+The original RNA data is indexed by ensembl_gene_id (ENSG), to used it with
+proteomics data at gene symbol level, we need to mapping ensembl_gene_id to
+gene symbol.
+
+## create a dictionary used for mapping ensembl_gene_id to gene symbol
+When a same ensembl_gene_id can be map to multiple gene symbol (not common)
+use only the first one (ordered by alphabeta)
+```{r}
+# import information for mapping between accession, gene symbol, and ensembl ID
+omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
+
+dict_ensembl_to_gen_symbol <- omics_metadata %>% select(ensembl_gene_id, gene_symbol) %>% unique()
+dict_ensembl_to_gen_symbol <- dict_ensembl_to_gen_symbol %>% dplyr::group_by(ensembl_gene_id) %>% 
+      dplyr::arrange(gene_symbol) %>% 
+      dplyr::summarise(map_to=first(gene_symbol))
+
+rm(omics_metadata)
+```
+
+## mapping ensembl_gene_id to gene symbol and pre-process data
+1. Remove row with 0 in all cells
+2. Only keep the 8 gastric primary cell samples
+3. aggregate row with the same index by summing across row axis
+```{r}
+count_TPM_gene_symbol <- count_TPM_mat
+# for rowname, mapping ensembl ID to gene symbol
+rownames(count_TPM_gene_symbol) <- mapping(rownames(count_TPM_mat), 
+                                           dictionary = dict_ensembl_to_gen_symbol)
+# remove all 0 rows
+count_TPM_gene_symbol <- count_TPM_gene_symbol[rowSums(count_TPM_gene_symbol > 0) > 0, ]
+
+# aggregate row with same gene symbol index
+temp <- as_tibble(count_TPM_gene_symbol, rownames='symbol') %>% filter(!is.na(symbol)) %>% group_by(symbol) %>% summarise_all(sum)
+count_TPM_gene_symbol <- as.matrix(temp[-1])
+rownames(count_TPM_gene_symbol) <- temp$symbol
+
+# change the column name the same as in spectral count matrix
+colnames(count_TPM_gene_symbol) <- c('IP7103_1701', 'IP0972_1701', 'IP0995_1701', 'IP0982_1701', 'IP0999_1701', 'IP7100_1701', 'IP0993_1701', 'IP0981_1701', 'IP7105_1701')
+count_TPM_gene_symbol <- count_TPM_gene_symbol[, c("IP0981_1701", "IP0982_1701",
+                                                   "IP0993_1701", "IP0995_1701",
+                                                   "IP0999_1701", "IP7100_1701",
+                                                   "IP7103_1701", "IP7105_1701")]
+
+# remove row with NA index
+count_TPM_gene_symbol <- count_TPM_gene_symbol[!is.na(rownames(count_TPM_gene_symbol)), ]
+
+head(count_TPM_gene_symbol)
+nrow(count_TPM_gene_symbol)
+# write.csv(as.data.frame(count_TPM_gene_symbol), file='TPM_gastric_cancer_primary_cell.csv')
+```
+
+
+# export the processed RNA data
+```{r}
+write.csv(as.data.frame(count_TPM_gene_symbol), 'RNA-data/processed_RNA_data.csv')
+```
+
 
 ## recheck sample-level expression distribution after TPM normalization
 ```{r}
-boxplot(as.data.frame(log(count_TPM_mat+1)))
+boxplot(as.data.frame(log(count_TPM_gene_symbol+1)))
 ```
 
 

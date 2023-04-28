@@ -1,22 +1,26 @@
 ---
-title: "raw_data_analysis"
+title: "main analysis"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2022-09-21"
 ---
 
+# setup rmarkdown knit profile
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project')
-setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project')
-getwd()
+# change the root.dir to where the data reside
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
+# run following line if you need to run code in console
+# knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
+# setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
+# getwd()
 ```
 
 
 ```{r}
 library(tidyverse)
-# install.packages("devtools")
+# Some function Reuqires the in-house package "protools"
 if (!require("protools", quietly = TRUE))
    devtools::install_github("https://github.com/FDUguchunhui/protools")
 library('protools')
@@ -26,15 +30,15 @@ library('protools')
 # Import data
 ```{r}
 # import gastric primary cell nsaf data that filtered with Spectral count (SpC) >=2
-gastric_nsaf <- as.matrix(read.csv('data/gastric-primary-cell/gastric_primary_cell_nsaf_2.csv', row.names = 1))
+gastric_nsaf <- as.matrix(read.csv('gastric-primary-cell/gastric_primary_cell_nsaf_2.csv', row.names = 1))
 # # import gastric primary cell SpC data
-gastric_count <- read_csv('data/gastric-primary-cell/gastric_primary_cell_count_2.csv', show_col_types = FALSE)
+gastric_count <- read_csv('gastric-primary-cell/gastric_primary_cell_count_2.csv', show_col_types = FALSE)
 # rename the index column as "accession"
 colnames(gastric_count)[1] <- 'accession'
 # import information for mapping between accession, gene symbol, and ensembl ID
-omics_metadata <- read_csv('data/support-data/omics_metadata.csv', show_col_types = FALSE)
-# load missing protein information, it will load just one object missing_protein_df
-load('cache/missing_protein.rda')
+omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
+# load missing protein information
+missing_protein_df <- readxl::read_xlsx('support-data/PE2-5.xlsx')
 ```
 
 
@@ -47,12 +51,12 @@ the regular protein is not the just a complementary of missing protein, need to 
 # similar P2_5_proteins are protein gene symbols under P2-5 category in nextprot
 # P2_5_proteins will be used for negative filtering to get regular proteins
 missing_proteins_gene_symnol <- missing_protein_df %>% filter(PE != 'Uncertain') %>% select(`gene name(s)`) %>% pull
-P2_5_proteins_gene_symbol <- missing_protein_df  %>% select(`gene name(s)`) %>% pull
+P2_5_proteins_gene_symbol <- missing_protein_df  %>% select(`gene name(s)`) %>% pull()
 
 # missing_proteins is a character vector of MP accession ID
 # similar P2_5_proteins are protein accesion ID under P2-5 category in nextprot
 missing_proteins_accession <- missing_protein_df %>% filter(PE != 'Uncertain') %>% select(Accession) %>% pull
-P2_5_proteins_accession <- missing_protein_df %>% select(Accession) %>% pull
+P2_5_proteins_accession <- missing_protein_df %>% select(Accession) %>% pull()
 ```
 
 
@@ -125,17 +129,30 @@ MP_counts_long %>% filter(count >= 2) %>% summary()
 
 # Match mRNA expression to corresponding protein
 The oirginal proteomics data is in accession level and the original transcription data
-is in gene level. To match the two data, we need to aggregate protein expression at
-the gene level. Typically, one gene can be transcripted and translated into multiple proteins and 
-a protein can be translated only from a single gene. So the mapping from accession to gene symbol is unique.
-After mapping, there can be rows with the same gene symbol ID, then those row with the 
-same gene symbol ID were summed into a single row to represent the expression of proteins translated 
-from that one gene.
+is in gene level.
+
+For example:
+There are two proteins coded by gene CTAGE1: Q96RT6 and Q9HC47
+
+and we have the following expression
+NSAF Q96RT6: 3
+NSAF Q9HC47: 0
+TPM CTAGE1: 3
+
+Then after match mRNA expression, each protein will have a column indicating its
+protein expression in NSAF and another column indicating its corresponding gene
+expression in TPM
+
+Q96RT6:
+	NSAF: 3
+	TPM: 3
+Q9HC47:
+	NSAF: 0
+	TPM: 3
 
 
 
-
-# create a dictionary used for mapping ensembl_gene_id to gene symbol
+## create a dictionary used for mapping ensembl_gene_id to gene symbol
 When a same ensembl_gene_id can be map to multiple gene symbol (not common)
 use only the first one (ordered by alphabeta)
 ```{r}
@@ -143,15 +160,16 @@ dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, 
 ```
 
 
-# make long-format gastric NSAF data
+## make long-format gastric NSAF data
 ```{r}
 gastric_nsaf_df <- as_tibble(gastric_nsaf, rownames='accession')
 gastric_nsaf_df_long <- gastric_nsaf_df %>% pivot_longer(names_to = 'IPAS', values_to = 'NSAF', cols = c(-accession))
+# type variable show whether a protein is a regular protein (RP, non-missing), missing protein (MP), or a PE5 protein (PE5 dubious) 
 gastric_nsaf_df_long <- gastric_nsaf_df_long %>% mutate(type=if_else(accession %in% missing_proteins_accession, 'MP', 
                                                       if_else(!(accession %in% P2_5_proteins_accession), 'RP', 'PE5')))
 ```
 
-# get the correpsongding gene symbol for each protein
+## get the correpsongding gene symbol for each protein
 ```{r}
 gastric_nsaf_df_long$gene_symbol <- mapping(gastric_nsaf_df_long$accession, dict_accession_to_gene_symbol)
 rm(dict_accession_to_gene_symbol)
@@ -160,54 +178,11 @@ rm(dict_accession_to_gene_symbol)
 
 
 # load transcription data
-
-## Transform RNA expression data into gene symbol level
-The original RNA data is indexed by ensembl_gene_id (ENSG), to used it with
-proteomics data at gene symbol level, we need to mapping ensembl_gene_id to
-gene symbol.
-
 ```{r}
-#
-load('cache/count_TPM.rda')
+count_TPM_gene_symbol <- read.csv("RNA-data/processed_RNA_data.csv", row.names = 1)
 ```
 
 
-## create a dictionary used for mapping ensembl_gene_id to gene symbol
-When a same ensembl_gene_id can be map to multiple gene symbol (not common)
-use only the first one (ordered by alphabeta)
-```{r}
-dict_ensembl_to_gen_symbol <- omics_metadata %>% select(ensembl_gene_id, gene_symbol) %>% unique()
-dict_ensembl_to_gen_symbol <- dict_ensembl_to_gen_symbol %>% dplyr::group_by(ensembl_gene_id) %>% 
-      dplyr::arrange(gene_symbol) %>% 
-      dplyr::summarise(map_to=first(gene_symbol))
-```
-
-### mapping ensembl_gene_id to gene symbol and pre-process data
-1. Remove row with 0 in all cells
-2. Only keep the 8 gastric primary cell samples
-3. aggregate row with the same index by summing across row axis
-```{r}
-count_TPM_gene_symbol <- count_TPM_mat
-rownames(count_TPM_gene_symbol) <- mapping(rownames(count_TPM_mat), dictionary = dict_ensembl_to_gen_symbol)
-
-count_TPM_gene_symbol <- count_TPM_gene_symbol[rowSums(count_TPM_gene_symbol > 0) > 0, ]
-
-# aggregate row with same gene symbol index
-temp <- as_tibble(count_TPM_gene_symbol, rownames='symbol') %>% filter(!is.na(symbol)) %>% group_by(symbol) %>% summarise_all(sum)
-count_TPM_gene_symbol <- as.matrix(temp[-1])
-rownames(count_TPM_gene_symbol) <- temp$symbol
-
-# change the column name the same as in spectral count matrix
-colnames(count_TPM_gene_symbol) <- c('IP7103_1701', 'IP0972_1701', 'IP0995_1701', 'IP0982_1701', 'IP0999_1701', 'IP7100_1701', 'IP0993_1701', 'IP0981_1701', 'IP7105_1701')
-count_TPM_gene_symbol <- count_TPM_gene_symbol[, colnames(gastric_nsaf)]
-
-# remove row with NA index
-count_TPM_gene_symbol <- count_TPM_gene_symbol[!is.na(rownames(count_TPM_gene_symbol)), ]
-
-head(count_TPM_gene_symbol)
-nrow(count_TPM_gene_symbol)
-# write.csv(as.data.frame(count_TPM_gene_symbol), file='TPM_gastric_cancer_primary_cell.csv')
-```
 
 
 ## make long-format of RNA expression data
@@ -233,14 +208,6 @@ dat_combined_long$TPM <- ifelse(is.na(dat_combined_long$TPM), 0, dat_combined_lo
 length(MP_unique_accession)
 ```
 
-
-
-
-# rename to sample 1- 8
-```{r}
-# colnames(gastric_nsaf_gene_level) <- paste('Sample', 1:8, sep = ' ')
-# colnames(count_TPM_gene_symbol) <- paste('Sample', 1:8, sep = ' ')
-```
 
 
 ## combine and match RNA and proteomics data into long format
@@ -311,7 +278,7 @@ table(missing_protein_df$PE)
 # check the protein and RNA expression for the detected missing proteins
 full_table_detected_MP <- combined_long %>% filter(type=='MP') %>% filter(NSAF > 0) %>% arrange(accession, IPAS)
 
-write_csv(full_table_detected_MP, 'output/detected_177_MP_products_with_RNA.csv')
+write_csv(full_table_detected_MP, 'detected_177_MP_products_with_RNA.csv')
 ```
 
 
@@ -332,7 +299,9 @@ write_csv(full_table_detected_MP, 'output/detected_177_MP_products_with_RNA.csv'
 
 
 
-histogram
+# histogram 
+show the number of detected missing protein and proportion of them having 
+corresponding mRNA expression
 ```{r}
 b$IPAS = 'Combined'
 c$IPAS = 'Combined w.o. outlier'
@@ -364,44 +333,34 @@ The execution of the following chucks of code could be slow for the size of non-
 Code is split into several chuck otherwise the computation time required is long.
 ```{r echo=TRUE}
 # the coverage rate of RNA product in protein product for non-missing protein
-(a <- summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = TRUE, cases = c(1, 2)))
+(a_RP <- summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = TRUE, cases = c(1, 2)))
 ```
 
-
-```{r echo=TRUE}
+```{r}
 ## overall without removing the outlier
-(b <- summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = FALSE, cases = c(1, 2)))
+b_RP <- a_RP %>% group_by(case) %>% 
+    summarise(count= sum(count)) %>%
+    mutate(countT=sum(count)) %>% 
+    mutate(per=paste0(round(100*count/countT,2),'%'))
 ```
 
 
-```{r echo=TRUE}
-## overall with removing the outlier
-(c <- summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = FALSE, cases = c(1, 2), remove_IPAS = c('IP0981_1701', 'IP7103_1701')))
+```{r}
+## overall after removing the outlier
+c_RP <- a_RP %>% filter(!IPAS %in% c('IP0981_1701', 'IP7103_1701')) %>% 
+  group_by(case) %>% 
+    summarise(count= sum(count)) %>%
+    mutate(countT=sum(count)) %>% 
+    mutate(per=paste0(round(100*count/countT,2),'%'))
 ```
 
 
-```{r echo=TRUE}
-# the coverage rate of protein product in RNA product for non-missing protein
-summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = TRUE, cases = c(1, 3))
-```
-
-
-```{r echo=TRUE}
-## overall without removing the outlier
-summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = FALSE, cases = c(1, 3))
-```
-
-
-```{r echo=TRUE}
-## overall with removing the outlier
-summarize_by_case(combined_long, protein_type = 'RP', group_by_IPAS = FALSE, cases = c(1, 3), remove_IPAS = c('IP0981_1701', 'IP7103_1701'))
-```
 
 ## barplot for non-missing proteins
 ```{r}
-b$IPAS = 'Combined'
-c$IPAS = 'Combined2'
-dat_hist <- rbind(a, b, c)
+b_RP$IPAS = 'Combined'
+c_RP$IPAS = 'Combined2'
+dat_hist <- rbind(a_RP, b_RP, c_RP)
 
 dat_hist$case <- factor(dat_hist$case, levels = c('1', '2'), labels = c('RNA (+)', 'RNA (-)'))
 dat_hist$case <- relevel(dat_hist$case, 'RNA (+)')
@@ -420,6 +379,8 @@ ggplot(data=dat_hist, aes(x=IPAS, y=count, group=case, fill=case)) +
 ```
 
 
+
+
 # Data preparation for Figure 3: The scatter plot of protein-mRNA-product matched pairs. 
 
 ## generate data that can be used for plot the scatter plot
@@ -429,7 +390,7 @@ Four datasets were created:
 3) glmm_dat_non_missing: paired RNA/protein expressions for regular protein
 4) glmm_dat_non_missing_filtered: air RNA/protein expressions for regular proteins and only keep proteins with both valid (>0) RNA and protein expressions
 
-All TPM/NSAF values were log-transformed in all four datasets
+`All TPM/NSAF values were log-transformed in all four datasets`
 ```{r}
 glmm_dat_missing <- dat_combined_long %>% filter(type=='MP') %>% mutate(TPM = log(TPM + 1), NSAF = log(NSAF + 1))
 glmm_dat_missing_filtered <- glmm_dat_missing %>% filter(TPM > 0 & NSAF > 0)
@@ -440,9 +401,7 @@ glmm_dat_non_missing_filtered <- glmm_dat_non_missing %>% filter(TPM > 0 & NSAF 
 ```
 
 
-## Checking Sample heterogeneity
-Check whether RNA expression, protein expression, and protein-RNA-expression relationship were
-similar between samples
+
 
 #  Generalization linear mixed model using RNA expression as random effects in different samples
 check whether the correlation relationship is different in different samples
@@ -457,6 +416,14 @@ No significant evidence for support using RNA expression as random effects
 ```{r}
 anova(glmm_model, glm_model)
 ```
+
+
+So, a simple linear regression can be used
+```{r}
+model.lm <- lm(NSAF ~ TPM, data = glmm_dat_missing_filtered)
+summary(model.lm)
+```
+
 
 
 The scatterplot with group-wise linear regression line validates the result
@@ -481,29 +448,6 @@ ggplot(data      = glmm_dat_missing_filtered,
   )
 ```
 
-
-```{r}
-model.lm <- lm(NSAF ~ TPM, data = glmm_dat_missing_filtered)
-summary(model.lm)
-```
-
-
-
-## correlation plot for pairwise correlation of missing protein expression
-# results of the two correlation plot can be found in the end of the this markdown file
-```{r eval=FALSE, include=FALSE}
-library(corrplot)
-corr <- cor(heatmap_dat, method = "spearman")
-corrplot.mixed(corr, lower = 'number', upper='ellipse', tl.cex=0.5,
-               na.label.col='black',
-               mar=c(0,0,2,0))
-```
-
-## correlation plot for pairwise correlation of missing protein gene expression
-```{r eval=FALSE, include=FALSE}
-corr <- cor(heatmap_dat_TPM, method = "spearman")
-corrplot.mixed(corr, lower = 'number', upper='ellipse', tl.cex=0.6, na.label.col='black')
-```
 
 
 
@@ -616,15 +560,15 @@ Criterion: has both valid protein expression and RNA expression i.e.  NASF > 0
 & TPM > 0
 ```{r}
 # the number should be 85 if using two-SpC-rule
-detected_MP_proteins <- combined_long  %>% filter(NSAF > 0, TPM > 0, type=='MP') %>% arrange(accession) %>% group_by(accession) %>% summarise(n=n())  %>%  select(accession) %>% pull() %>% unique()
+identified_MPs <- combined_long  %>% filter(NSAF > 0, TPM > 0, type=='MP') %>% arrange(accession) %>% group_by(accession) %>% summarise(n=n())  %>%  select(accession) %>% pull() %>% unique()
 # the details of the 85 identified missing proteins
-detected_MP_proteins
+identified_MPs
 
-detected_MP_proteins_gene_symol <- combined_long  %>% filter(NSAF > 0, TPM > 0, type=='MP') %>% select(gene_symbol) %>% pull() %>% unique()
+identified_MPs_gene_symol <- combined_long  %>% filter(NSAF > 0, TPM > 0, type=='MP') %>% select(gene_symbol) %>% pull() %>% unique()
 ```
 # the PE (protein evidence) distribution of the identified missing proteins
 ```{r}
-missing_protein_df %>% filter(`Accession` %in% detected_MP_proteins) %>% select(PE) %>% pull() %>% table()
+missing_protein_df %>% filter(`Accession` %in% identified_MPs) %>% select(PE) %>% pull() %>% table()
 ```
 
 
@@ -635,7 +579,7 @@ expression, and values were log (NSAF +1) transformed
 ```{r, fig.height=8, fig.width=8}
 # double check clustering
 library(pheatmap)
-heatmap_dat <- log(gastric_nsaf[detected_MP_proteins, ] + 1)
+heatmap_dat <- log(gastric_nsaf[identified_MPs, ] + 1)
 colnames(heatmap_dat) =paste('sample', 1:8)
 pheatmap(heatmap_dat, 
          show_rownames = T,
@@ -649,7 +593,7 @@ Heatmap representations for quantified missing proteins in the eight
 gastric cancer primary cell samples. Color represents the level of mRNA expression,
 and values were log (TPM +1) transformed
 ```{r, fig.height=12, fig.width=8}
-heatmap_dat_TPM <- log(count_TPM_gene_symbol[detected_MP_proteins_gene_symol, ] + 1)
+heatmap_dat_TPM <- log(count_TPM_gene_symbol[identified_MPs_gene_symol, ] + 1)
 colnames(heatmap_dat_TPM) =paste('sample', 1:8)
 pheatmap(heatmap_dat_TPM, 
          show_rownames = T,
@@ -660,7 +604,9 @@ pheatmap(heatmap_dat_TPM,
 
 
 
-
+## Checking Sample heterogeneity
+Check whether RNA expression, protein expression, and protein-RNA-expression relationship were
+similar between samples
 ## correlation plot for pairwise correlation of missing protein expression
 ```{r}
 library(corrplot)

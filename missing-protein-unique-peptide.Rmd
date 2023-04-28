@@ -1,5 +1,5 @@
 ---
-title: "missing-protein-unique-peptides"
+title: "detected missing protein unique peptides analysis"
 output:
   pdf_document: default
   html_document: default
@@ -9,7 +9,10 @@ date: "2023-04-06"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
-
+# run following line if you need to run code in console
+# knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
+# setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
+# getwd()
 ```
 
 
@@ -42,16 +45,14 @@ MP_final_peptide$Source <- str_extract(MP_final_peptide$Source, '^IPAS[0-9]+')
 MP_final_peptide$unique <- ifelse((MP_final_peptide$unique =='.' | MP_final_peptide$unique == 'N'), 0 , 1)
 ```
 
-# Import peptides of 204 identified missing proteins
+# Import peptides of 177 identified missing proteins
 ```{r}
 # MP_204_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
 MP_177_products <- read_csv('detected_177_MP_products_with_RNA.csv')
 MP_177_products$IPAS <- paste0('IPAS', str_extract(MP_177_products$IPAS, '(?<=IP).+(?=_)'))
 ```
 
-The uniqueness checker contains information about the identified 298 missing proteins
-(without SpC >=2 constraint), and it is a superset of the identified 204 MPs.
-The following code extract uniqueness checker information only for those 204 MPs.
+# Calculate the number of unique peptides for each detected MPs (and identified MPs)
 ```{r}
 unique_peptide_summary <- MP_final_peptide %>% filter(unique == 1) %>% group_by(protein.Accession, Source) %>% summarise(n=n(), unique_peptide=paste0(peptide.seq, collapse = '+')) %>% arrange(protein.Accession, desc(n), .by_group = FALSE) %>% ungroup()
 ```
