@@ -11,6 +11,8 @@ date: "2022-09-21"
 knitr::opts_chunk$set(echo = TRUE)
 # change the root.dir to where the data reside
 knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
+# knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project')
+# knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project/data/')
 # run following line if you need to run code in console
 # knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
 # setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
@@ -18,25 +20,30 @@ knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing
 ```
 
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 library(tidyverse)
 # Some function Reuqires the in-house package "protools"
-if (!require("protools", quietly = TRUE))
-   devtools::install_github("https://github.com/FDUguchunhui/protools")
-library('protools')
+# if (!require("protools", quietly = TRUE))
+#    devtools::install_github("https://github.com/FDUguchunhui/protools")
+# library('protools')
 ```
+
+```{r}
+gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
+```
+
 
 
 # Import data
 ```{r}
 # import gastric primary cell nsaf data that filtered with Spectral count (SpC) >=2
-gastric_nsaf <- as.matrix(read.csv('gastric-primary-cell/gastric_primary_cell_nsaf_2.csv', row.names = 1))
+gastric_nsaf <- as.matrix(read.csv(paste0(gastric_data_path, 'gastric_primary_cell_nsaf.csv'), row.names = 1))
 # # import gastric primary cell SpC data
-gastric_count <- read_csv('gastric-primary-cell/gastric_primary_cell_count_2.csv', show_col_types = FALSE)
+gastric_count <- read_csv(paste0(gastric_data_path, 'gastric_primary_cell_count.csv'), show_col_types = FALSE)
 # rename the index column as "accession"
 colnames(gastric_count)[1] <- 'accession'
 # import information for mapping between accession, gene symbol, and ensembl ID
-omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
+# omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
 # load missing protein information
 missing_protein_df <- readxl::read_xlsx('support-data/PE2-5.xlsx')
 ```
@@ -156,7 +163,8 @@ Q9HC47:
 When a same ensembl_gene_id can be map to multiple gene symbol (not common)
 use only the first one (ordered by alphabeta)
 ```{r}
-dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, gene_symbol) %>% unique() %>% filter(!is.na(accession_id))
+# dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, gene_symbol) %>% unique() %>% filter(!is.na(accession_id))
+dict_accession_to_gene_symbol <- read_csv('gastric-primary-cell/FDR1_distinct2_pep/id_mapping_table.csv')
 ```
 
 
@@ -172,7 +180,7 @@ gastric_nsaf_df_long <- gastric_nsaf_df_long %>% mutate(type=if_else(accession %
 ## get the correpsongding gene symbol for each protein
 ```{r}
 gastric_nsaf_df_long$gene_symbol <- mapping(gastric_nsaf_df_long$accession, dict_accession_to_gene_symbol)
-rm(dict_accession_to_gene_symbol)
+# rm(dict_accession_to_gene_symbol)
 ```
 
 
@@ -180,6 +188,10 @@ rm(dict_accession_to_gene_symbol)
 # load transcription data
 ```{r}
 count_TPM_gene_symbol <- read.csv("RNA-data/processed_RNA_data.csv", row.names = 1)
+col_name_mapping <- tibble(ipas = c("IP0981_1701","IP0982_1701", "IP0993_1701", "IP0995_1701", "IP0999_1701", "IP7100_1701", "IP7103_1701", "IP7105_1701"),
+       sample_id = paste('Sample', 1:8, sep = '_'))
+colnames(count_TPM_gene_symbol) <- mapping(colnames(count_TPM_gene_symbol), col_name_mapping)
+count_TPM_gene_symbol
 ```
 
 
@@ -278,7 +290,7 @@ table(missing_protein_df$PE)
 # check the protein and RNA expression for the detected missing proteins
 full_table_detected_MP <- combined_long %>% filter(type=='MP') %>% filter(NSAF > 0) %>% arrange(accession, IPAS)
 
-write_csv(full_table_detected_MP, 'detected_177_MP_products_with_RNA.csv')
+# write_csv(full_table_detected_MP, 'detected_177_MP_products_with_RNA.csv')
 ```
 
 
@@ -294,7 +306,7 @@ write_csv(full_table_detected_MP, 'detected_177_MP_products_with_RNA.csv')
 (b <- summarize_by_case(combined_long, protein_type = 'MP', group_by_IPAS = FALSE, cases = c(1, 2)))
 
 ## overall with removing the outlier
-(c <- summarize_by_case(combined_long, protein_type = 'MP', group_by_IPAS = FALSE, cases = c(1, 2), remove_IPAS = c('IP0981_1701', 'IP7103_1701')))
+(c <- summarize_by_case(combined_long, protein_type = 'MP', group_by_IPAS = FALSE, cases = c(1, 2), remove_IPAS = c('Sample_1')))
 ```
 
 
@@ -311,8 +323,7 @@ dat_hist <- rbind(a, b, c)
 dat_hist$case <- factor(dat_hist$case, levels = c('1', '2'), labels = c('RNA (+)', 'RNA (-)'))
 dat_hist$case <- relevel(dat_hist$case, 'RNA (+)')
 
-dat_hist$IPAS <- factor(dat_hist$IPAS, levels = c("IP0981_1701", "IP0982_1701", "IP0993_1701", "IP0995_1701", "IP0999_1701",
-                                                  "IP7100_1701", "IP7103_1701", "IP7105_1701", "Combined w.o. outlier",  "Combined"))
+dat_hist$IPAS <- factor(dat_hist$IPAS, levels = c(paste('Sample', 1:8, sep = '_'), "Combined w.o. outlier",  "Combined"))
 
 
 ggplot(data=dat_hist, aes(x=IPAS, y=count, group=case, fill=case)) +
@@ -342,16 +353,18 @@ b_RP <- a_RP %>% group_by(case) %>%
     summarise(count= sum(count)) %>%
     mutate(countT=sum(count)) %>% 
     mutate(per=paste0(round(100*count/countT,2),'%'))
+b_RP 
 ```
 
 
 ```{r}
 ## overall after removing the outlier
-c_RP <- a_RP %>% filter(!IPAS %in% c('IP0981_1701', 'IP7103_1701')) %>% 
+c_RP <- a_RP %>% filter(!IPAS %in% c('Sample_1')) %>% 
   group_by(case) %>% 
     summarise(count= sum(count)) %>%
     mutate(countT=sum(count)) %>% 
     mutate(per=paste0(round(100*count/countT,2),'%'))
+c_RP 
 ```
 
 
@@ -359,14 +372,13 @@ c_RP <- a_RP %>% filter(!IPAS %in% c('IP0981_1701', 'IP7103_1701')) %>%
 ## barplot for non-missing proteins
 ```{r}
 b_RP$IPAS = 'Combined'
-c_RP$IPAS = 'Combined2'
+c_RP$IPAS = 'Combined w.o. outlier'
 dat_hist <- rbind(a_RP, b_RP, c_RP)
 
 dat_hist$case <- factor(dat_hist$case, levels = c('1', '2'), labels = c('RNA (+)', 'RNA (-)'))
 dat_hist$case <- relevel(dat_hist$case, 'RNA (+)')
 
-dat_hist$IPAS <- factor(dat_hist$IPAS, levels = c("IP0981_1701", "IP0982_1701", "IP0993_1701", "IP0995_1701", "IP0999_1701",
-                                                  "IP7100_1701", "IP7103_1701", "IP7105_1701", "Combined",  "Combined2"))
+dat_hist$IPAS <- factor(dat_hist$IPAS, levels = c(paste('Sample', 1:8, sep = '_'), "Combined w.o. outlier",  "Combined"))
 
 ggplot(data=dat_hist, aes(x=IPAS, y=count, group=case, fill=case)) +
   labs(title="Coverage rate for prodein product with RNA product in non-missing proteins", subtitle = '',
@@ -465,7 +477,6 @@ ggpubr::ggscatter(glmm_dat_missing, x = "TPM", y = "NSAF",
    xlab = 'Log2 (TPM + 1)',
    ylab = 'Log2 (NSAF + 1)',
    ) + 
-  scale_color_discrete(labels=paste('sample', 1:8)) +
   scale_y_continuous(name='Log2 (NSAF + 1)', breaks=c(0, 2, 4, 6, 8, 10), limits = c(0, 10)) +
   # geom_vline(xintercept=0.1, linetype=2, color='red', size=0.5) +
   geom_hline(yintercept=2, linetype=2, color='red', size=0.5) +
@@ -487,7 +498,6 @@ plt <- ggpubr::ggscatter(glmm_dat_missing_filtered, x = "TPM", y = "NSAF",
    xlab = 'Log2 (TPM + 1)',
    ylab = 'Log2 (NSAF + 1)',
    ) +
-   scale_color_discrete(labels=paste('sample', 1:8)) +
    scale_y_continuous(name='Log2 (NSAF + 1)', breaks=c(0, 2, 4, 6, 8, 10), limits = c(0, 8)) +
    theme(legend.text = element_text(size=10)) +
    labs(color='Sample')
@@ -505,14 +515,12 @@ dens2 <- ggplot(glmm_dat_missing_filtered, aes(x = NSAF, fill = IPAS)) +
 
 dens1 + patchwork::plot_spacer() + plt + dens2 +  patchwork::plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
 
-
 # plot with spearman correlation for non-missing proteins
 ggpubr::ggscatter(glmm_dat_non_missing, x = "TPM", y = "NSAF",
    color = 'IPAS', size = 1.5, # Points color, shape and size
    title='Plot of NSAF vs. TPM for regular proteins',
    xlab = 'Log2 (TPM + 1)',
    ylab = 'Log2 (NSAF + 1)') +
-  scale_color_discrete(labels=paste('sample', 1:8)) +
    scale_x_continuous(name='Log2 (TPM + 1)', breaks=seq(0, 16, 2), limits = c(0, 16)) +
    scale_y_continuous(name='Log2 (NSAF + 1)', breaks=seq(0, 14, 2), limits = c(0, 14)) +
    theme(legend.text = element_text(size=10)) + 
@@ -532,7 +540,6 @@ plt <- ggpubr::ggscatter(glmm_dat_non_missing_filtered, x = "TPM", y = "NSAF",
    # subtitle='missing proteins on gene level in gastric cancer primary cell sample',
    xlab = 'Log2 (TPM + 1)',
    ylab = 'Log2 (NSAF + 1)') +
-  scale_color_discrete(labels=paste('sample', 1:8)) +
    scale_x_continuous(name='Log2 (TPM + 1)', breaks=seq(0, 16, 2), limits = c(0, 16)) +
    scale_y_continuous(name='Log2 (NSAF + 1)', breaks=seq(0, 14, 2), limits = c(0, 14)) +
     theme(legend.text = element_text(size=10)) +
@@ -580,7 +587,6 @@ expression, and values were log (NSAF +1) transformed
 # double check clustering
 library(pheatmap)
 heatmap_dat <- log(gastric_nsaf[identified_MPs, ] + 1)
-colnames(heatmap_dat) =paste('sample', 1:8)
 pheatmap(heatmap_dat, 
          show_rownames = T,
          angle_col=45,
@@ -594,7 +600,6 @@ gastric cancer primary cell samples. Color represents the level of mRNA expressi
 and values were log (TPM +1) transformed
 ```{r, fig.height=12, fig.width=8}
 heatmap_dat_TPM <- log(count_TPM_gene_symbol[identified_MPs_gene_symol, ] + 1)
-colnames(heatmap_dat_TPM) =paste('sample', 1:8)
 pheatmap(heatmap_dat_TPM, 
          show_rownames = T,
          angle_col=45,

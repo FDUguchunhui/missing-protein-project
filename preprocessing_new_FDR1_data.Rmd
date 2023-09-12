@@ -1,0 +1,99 @@
+---
+title: "preprocessing_new_FDR1_data"
+output: html_document
+date: "2023-08-24"
+---
+
+
+# setup rmarkdown knit profile
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# change the root.dir to where the data reside
+# knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing-protein-project-full-data')
+# knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/data/FDR1_distinct2_pep')
+knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
+# run following line if you need to run code in console
+# knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
+# setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
+# setwd('/Users/cgu3/Documents/missing-protein-project/data/FDR1_distinct2_pep')
+# getwd()
+```
+
+
+```{r}
+library(tidyverse)
+library(RCurl)
+# library(protools)
+```
+
+
+```{r}
+dat <- read_csv('gastric-primary-cell/FDR1_distinct2_pep/gastric_primary_cell_final_peptide_uniquespc2-noisoform_Summary.csv')
+```
+
+The accession file is just pure txt file for retrieve mapping between accession 
+and gene symbol from uniprot
+```{r}
+accessions = paste(dat$protein.Accession, collapse = ',')
+writeLines(accessions, 'gastric-primary-cell/FDR1_distinct2_pep//accessions.txt')
+```
+
+
+
+```{r}
+PE = subset(dat, select=c('protein.Accession', 'PE'))
+```
+
+
+```{r}
+dat = subset(dat, select = -PE)
+dat
+```
+
+
+Convert data into matrix form
+```{r}
+# Convert the Tibble to a data frame
+df <- as.data.frame(dat)
+# Extract the first column as row names
+rownames(df) <- df$protein.Accession
+# Create a matrix from the remaining columns
+mat <- as.matrix(df[, -1])
+
+
+col_name_mapping <- tibble(ipas = c("IPAS0981","IPAS0982", "IPAS0993", "IPAS0995", "IPAS0999", "IPAS7100", "IPAS7103", "IPAS7105"),
+       sample_id = paste('Sample', 1:8, sep = '_'))
+
+colnames(mat) <- mapping(colnames(mat), col_name_mapping)
+```
+
+
+```{r}
+id_mapping = read_tsv('gastric-primary-cell/FDR1_distinct2_pep/idmapping_2023_09_10.tsv', col_names = c('accession', 'entry', 'gene_symbol', 'length'), skip=1)
+length_table = subset(id_mapping, select=c('accession', 'length'))
+id_mapping_table = subset(id_mapping, select = c('accession', 'gene_symbol'))
+```
+
+
+
+```{r}
+mat_nsaf <- nsaf(mat, length_table, per_count = 1e6)
+mat_tic_norm <- total_spectral_count_norm(mat)
+```
+
+# customized write_csv_mat function
+```{r}
+write_csv_mat <- function(mat, file) {
+  file <- paste0('gastric-primary-cell/FDR1_distinct2_pep/', file)
+  write_csv(as_tibble(mat, rownames='accession'), file)
+}
+```
+
+
+```{r}
+write_csv_mat(mat, 'gastric_primary_cell_count.csv')
+write_csv_mat(mat_nsaf, 'gastric_primary_cell_nsaf.csv')
+write_csv_mat(mat_tic_norm,'gastric_primary_cell_ticn.csv')
+write_csv(id_mapping_table, 'gastric-primary-cell/FDR1_distinct2_pep/id_mapping_table.csv')
+```
+
