@@ -8,7 +8,7 @@ date: "2023-04-06"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/data/')
 # run following line if you need to run code in console
 # knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
 # setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')

@@ -9,9 +9,7 @@ date: "2023-08-24"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # change the root.dir to where the data reside
-# knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing-protein-project-full-data')
-# knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/data/FDR1_distinct2_pep')
-knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/data/')
 # run following line if you need to run code in console
 # knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
 # setwd('/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/proteomics/missing protien project manuscript/missing-protein-project-data')
@@ -68,7 +66,9 @@ id_mapping_table = subset(id_mapping, select = c('accession', 'gene_symbol'))
 
 ```{r}
 mat_nsaf <- nsaf(mat, length_table, per_count = 1e6)
-mat_tic_norm <- total_spectral_count_norm(mat)
+
+mat <- mat[, -1]
+mat_tsc_norm <- total_spectral_count_norm(mat)
 ```
 
 # customized write_csv_mat function
@@ -83,7 +83,7 @@ write_csv_mat <- function(mat, file) {
 ```{r}
 write_csv_mat(mat, 'gastric_primary_cell_count.csv')
 write_csv_mat(mat_nsaf, 'gastric_primary_cell_nsaf.csv')
-write_csv_mat(mat_tic_norm,'gastric_primary_cell_ticn.csv')
+write_csv_mat(mat_tsc_norm,'gastric_primary_cell_tscn.csv')
 write_csv(id_mapping_table, 'gastric-primary-cell/FDR1_distinct2_pep/id_mapping_table.csv')
 ```
 
