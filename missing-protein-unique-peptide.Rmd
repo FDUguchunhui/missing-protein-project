@@ -18,9 +18,9 @@ knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing
 
 ```{r}
 library(tidyverse)
-if (!require("protools", quietly = TRUE))
-   devtools::install_github("https://github.com/FDUguchunhui/protools")
-library(protools)
+# if (!require("protools", quietly = TRUE))
+#    devtools::install_github("https://github.com/FDUguchunhui/protools")
+# library(protools)
 ```
 
 

@@ -45,7 +45,8 @@ colnames(gastric_count)[1] <- 'accession'
 # import information for mapping between accession, gene symbol, and ensembl ID
 # omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
 # load missing protein information
-missing_protein_df <- readxl::read_xlsx('support-data/PE2-5.xlsx')
+missing_protein_df <- read_csv('gastric-primary-cell/FDR1_distinct2_pep/nextprot_missing_protein.csv')
+# missing_protein_df$Accession <- str_remove(missing_protein_df$`acc. code`, 'NX_')
 ```
 
 

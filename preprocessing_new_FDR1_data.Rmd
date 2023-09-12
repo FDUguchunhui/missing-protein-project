@@ -40,16 +40,6 @@ writeLines(accessions, 'gastric-primary-cell/FDR1_distinct2_pep//accessions.txt'
 
 
 
-```{r}
-PE = subset(dat, select=c('protein.Accession', 'PE'))
-```
-
-
-```{r}
-dat = subset(dat, select = -PE)
-dat
-```
-
 
 Convert data into matrix form
 ```{r}
@@ -69,7 +59,7 @@ colnames(mat) <- mapping(colnames(mat), col_name_mapping)
 
 
 ```{r}
-id_mapping = read_tsv('gastric-primary-cell/FDR1_distinct2_pep/idmapping_2023_09_10.tsv', col_names = c('accession', 'entry', 'gene_symbol', 'length'), skip=1)
+id_mapping = read_tsv('gastric-primary-cell/FDR1_distinct2_pep/idmapping.tsv', col_names = c('accession', 'entry', 'gene_symbol', 'length'), skip=1)
 length_table = subset(id_mapping, select=c('accession', 'length'))
 id_mapping_table = subset(id_mapping, select = c('accession', 'gene_symbol'))
 ```
