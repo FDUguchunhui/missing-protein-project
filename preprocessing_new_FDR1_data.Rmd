@@ -21,7 +21,7 @@ knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/d
 ```{r}
 library(tidyverse)
 library(RCurl)
-# library(protools)
+library(protools)
 ```
 
 

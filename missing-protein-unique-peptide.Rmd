@@ -48,8 +48,9 @@ MP_final_peptide$unique <- ifelse((MP_final_peptide$unique =='.' | MP_final_pept
 # Import peptides of 177 identified missing proteins
 ```{r}
 # MP_204_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
-MP_177_products <- read_csv('detected_177_MP_products_with_RNA.csv')
+MP_177_products <- readxl::read_xlsx('Supplementary file 2 identified missing protein details.xlsx', sheet = 1)
 MP_177_products$IPAS <- paste0('IPAS', str_extract(MP_177_products$IPAS, '(?<=IP).+(?=_)'))
+
 ```
 
 # Calculate the number of unique peptides for each detected MPs (and identified MPs)
@@ -67,8 +68,8 @@ unique_peptide_summary <- MP_177_products %>% left_join(unique_peptide_summary, 
 
 # plot unique peptide frequency for MP  with/without RNA expression
 ```{r}
-unique_peptide_summary <-  unique_peptide_summary %>% mutate(count_discrete=ifelse(n >= 50, '50+', n))
-unique_peptide_summary$count_discrete <- factor(unique_peptide_summary$count_discrete, levels=c(as.character(0:49), '50+'))
+unique_peptide_summary <-  unique_peptide_summary %>% mutate(count_discrete=ifelse(n >= 30, '30+', n))
+unique_peptide_summary$count_discrete <- factor(unique_peptide_summary$count_discrete, levels=c(as.character(0:29), '30+'))
 
 unique_peptide_summary %>% 
   ggplot(aes(x=count_discrete)) +
@@ -77,8 +78,8 @@ theme_bw() +
   xlab('Matched unique peptide counts') +
   ylab('Frequency') +
   ggtitle('Matched unique peptide frequency of identified 177 missing proteins products') +
-  scale_x_discrete(breaks=c('1', seq(5, 49, 5), '50+'), drop=FALSE) +
-  scale_y_continuous(limits=c(0, 30))
+  scale_x_discrete(breaks=c('1', seq(0, 29, 5), '30+'), drop=FALSE)
+  # scale_y_continuous(limits=c(0, 30))
 ```
 ```{r}
 unique_peptide_summary %>% summary()
@@ -93,8 +94,8 @@ unique_peptide_summary %>% filter(n >= 2)
 # plot unique peptide frequency for MP with RNA expression
 ```{r}
 unique_peptide_summary_88 <- unique_peptide_summary %>% filter(TPM > 0)
-unique_peptide_summary_88 <-  unique_peptide_summary_88 %>% mutate(count_discrete=ifelse(n >= 50, '50+', n))
-unique_peptide_summary_88$count_discrete <- factor(unique_peptide_summary_88$count_discrete, levels=c(as.character(0:49), '50+'))
+unique_peptide_summary_88 <-  unique_peptide_summary_88 %>% mutate(count_discrete=ifelse(n >= 30, '30+', n))
+unique_peptide_summary_88$count_discrete <- factor(unique_peptide_summary_88$count_discrete, levels=c(as.character(0:29), '30+'))
 
 unique_peptide_summary_88 %>% 
   ggplot(aes(x=count_discrete)) +
@@ -104,8 +105,7 @@ theme_bw() +
   ylab('Frequency') +
   ggtitle('Matched unique peptide frequency of identified 88 missing proteins products 
           with mRNA expression') +
-  scale_x_discrete(breaks=c('1', seq(1, 49, 5), '50+'), drop=FALSE) +
-  scale_y_continuous(limits=c(0, 30))
+  scale_x_discrete(breaks=c('1', seq(0, 29, 5), '30+'), drop=FALSE) 
 ```
 
 ```{r}

@@ -10,8 +10,8 @@ date: "2022-09-21"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # change the root.dir to where the data reside
-knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
-# knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project')
+# knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing protien project manuscript/missing-protein-project-data')
+knitr::opts_knit$set(root.dir = '/Users/cgu3/Documents/missing-protein-project/data')
 # knitr::opts_knit$set(root.dir = '/Users/cgu3/Library/CloudStorage/OneDrive-InsideMDAnderson/data/missing-protein-project/data/')
 # run following line if you need to run code in console
 # knitr::opts_knit$set(root.dir only change working directory of code chucks not code directly running in console
@@ -23,13 +23,14 @@ knitr::opts_knit$set(root.dir = '/Volumes/hanash/Hanash_Lab_GPFS/Chunhui/missing
 ```{r eval=FALSE, include=FALSE}
 library(tidyverse)
 # Some function Reuqires the in-house package "protools"
-# if (!require("protools", quietly = TRUE))
-#    devtools::install_github("https://github.com/FDUguchunhui/protools")
+if (!require("protools", quietly = TRUE))
+   devtools::install_github("https://github.com/FDUguchunhui/protools")
 # library('protools')
 ```
 
 ```{r}
 gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
+# gastric_data_path <- 'gastric-primary-cell/FDR4-2017/'
 ```
 
 
@@ -37,7 +38,7 @@ gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
 # Import data
 ```{r}
 # import gastric primary cell nsaf data that filtered with Spectral count (SpC) >=2
-gastric_nsaf <- as.matrix(read.csv(paste0(gastric_data_path, 'gastric_primary_cell_tscn.csv'), row.names = 1))
+gastric_nsaf <- as.matrix(read.csv(paste0(gastric_data_path, 'gastric_primary_cell_nsaf.csv'), row.names = 1))
 # # import gastric primary cell SpC data
 gastric_count <- read_csv(paste0(gastric_data_path, 'gastric_primary_cell_count.csv'), show_col_types = FALSE)
 # rename the index column as "accession"
@@ -102,7 +103,7 @@ theme_bw() +
   xlab('Spectral counts') +
   ylab('Frequency') +
   ggtitle('Spectral count frequency of regular proteins') +
-  scale_x_discrete(breaks=c('1', seq(5, 50, 5), '50+'))
+  scale_x_discrete(breaks=c('1', seq(5, 49, 5), '50+'), drop=FALSE)
   
   
 ```
@@ -119,7 +120,7 @@ theme_bw() +
   xlab('Spectral counts') +
   ylab('Frequency') +
   ggtitle('Spectral count frequency of missing proteins') +
-  scale_x_discrete(breaks=c('1', seq(5, 50, 5), '50+'), drop=FALSE)
+  scale_x_discrete(breaks=c('1', seq(5, 49, 5), '50+'), drop=FALSE)
   
   
   
@@ -164,7 +165,7 @@ When a same ensembl_gene_id can be map to multiple gene symbol (not common)
 use only the first one (ordered by alphabeta)
 ```{r}
 # dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, gene_symbol) %>% unique() %>% filter(!is.na(accession_id))
-dict_accession_to_gene_symbol <- read_csv('gastric-primary-cell/FDR1_distinct2_pep/id_mapping_table.csv')
+dict_accession_to_gene_symbol <- read_csv(paste0(gastric_data_path, 'id_mapping_table.csv'))
 ```
 
 
