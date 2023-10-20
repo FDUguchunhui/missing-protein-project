@@ -29,8 +29,9 @@ if (!require("protools", quietly = TRUE))
 ```
 
 ```{r}
-gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
-# gastric_data_path <- 'gastric-primary-cell/FDR4-2017/'
+# gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
+# gastric_data_path <- 'gastric-primary-cell/FDR4-swiss-only/'
+gastric_data_path <- 'gastric-primary-cell/FDR4-2017/'
 ```
 
 
@@ -38,13 +39,13 @@ gastric_data_path <- 'gastric-primary-cell/FDR1_distinct2_pep/'
 # Import data
 ```{r}
 # import gastric primary cell nsaf data that filtered with Spectral count (SpC) >=2
-gastric_nsaf <- as.matrix(read.csv(paste0(gastric_data_path, 'gastric_primary_cell_nsaf.csv'), row.names = 1))
+gastric_nsaf <- as.matrix(read.csv(paste0(gastric_data_path, 'gastric_primary_cell_nsaf_2.csv'), row.names = 1))
 # # import gastric primary cell SpC data
 gastric_count <- read_csv(paste0(gastric_data_path, 'gastric_primary_cell_count.csv'), show_col_types = FALSE)
 # rename the index column as "accession"
 colnames(gastric_count)[1] <- 'accession'
 # import information for mapping between accession, gene symbol, and ensembl ID
-# omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
+omics_metadata <- read_csv('support-data/omics_metadata.csv', show_col_types = FALSE)
 # load missing protein information
 missing_protein_df <- readxl::read_xlsx('support-data/PE2-5.xlsx')
 ```
@@ -164,8 +165,8 @@ Q9HC47:
 When a same ensembl_gene_id can be map to multiple gene symbol (not common)
 use only the first one (ordered by alphabeta)
 ```{r}
-# dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, gene_symbol) %>% unique() %>% filter(!is.na(accession_id))
-dict_accession_to_gene_symbol <- read_csv(paste0(gastric_data_path, 'id_mapping_table.csv'))
+dict_accession_to_gene_symbol <- omics_metadata %>% dplyr::select(accession_id, gene_symbol) %>% unique() %>% filter(!is.na(accession_id))
+# dict_accession_to_gene_symbol <- read_csv(paste0(gastric_data_path, 'id_mapping_table.csv'))
 ```
 
 
@@ -381,9 +382,11 @@ dat_hist$case <- relevel(dat_hist$case, 'RNA (+)')
 
 dat_hist$IPAS <- factor(dat_hist$IPAS, levels = c(paste('Sample', 1:8, sep = '_'), "Combined w.o. outlier",  "Combined"))
 
+# dat_hist <- dat_hist[!dat_hist$IPAS %in% c('Combined', 'Combined w.o. outlier'), ]
+
 ggplot(data=dat_hist, aes(x=IPAS, y=count, group=case, fill=case)) +
   labs(title="Coverage rate for prodein product with RNA product in non-missing proteins", subtitle = '',
-        x = "IPAS", y = 'count') +
+        x = "Sample", y = 'count') +
   geom_bar( stat = 'identity',  position=position_dodge()) +
   geom_text(aes(label=per), color="black",size=3, vjust=-0.5, position = position_dodge(1)) +
   theme(
